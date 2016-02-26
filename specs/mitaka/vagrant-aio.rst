@@ -62,7 +62,7 @@ Topology
    |        |                   |      |     |                        |       |
    |        |               +---+------------+--------------+   +-----+-----+ |
    |        |               | Openstack+Ansible LXCs        |   | Neutron L3| |
-   |        |               ++(No^a/Neutron/Repo/Ceilometer/|   | Agent LXC | |
+   |        |               + (Nova/Neutron/Repo/Ceilometer/|   | Agent LXC | |
    |        |               |  Aodh/Horizon/Heat)           |   +-----------+ |
    |        |               +---+ +-------------------------+                 |
    |        |                                                                 |
