@@ -236,7 +236,7 @@ Assignee(s)
 -----------
 
 Primary assignee:
-  <stanley@linuxsimba.com> (IRC: skamithi)
+  http://launchpad.net/~linuxsimba skamithi
 
 
 Work items
@@ -244,10 +244,12 @@ Work items
 
 - Create the Virtualbox Provider VagrantFile, without any Ansible provisioning
   scripts
+
 - Create the Libvirt Provider VagrantFile, without any Ansible provisioning
   scripts
 
 - Create the aio_base_setup.yml provisioning script.
+
 - Create the deployserver provisioning script
 
 Testing
