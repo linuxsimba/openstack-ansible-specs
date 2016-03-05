@@ -1,5 +1,5 @@
 Virtual AIO using Vagrant
-#################################
+#################
 :date: 2015-02-25 22:00
 :tags: aio, vagrant
 
@@ -11,187 +11,82 @@ will be achieved using the Vagrant Virtualbox and Libvirt Providers.
 Problem description
 ===================
 
-Currently to learn or experiment with the Openstack-Ansible deployer, one has to
-execute AIO scripts on bare-metal. This blueprint proposes using Vagrant to
-virtually deploy the AIO setup. This can help improve development and
-testing of the Openstack-Ansible deployer.
+To hasten develop and testing of Openstack Ansible, this blueprint proposes
+using Vagrant to  setup a virtual AIO environment.
 
 
 Proposed change
 ===============
-The core of the feature is two VagrantFiles, one for the VirtualBox Vagrant
-provider and the second for the Libvirt Vagrant provider. It is possible to
-use just one VagrantFile. For readability reasons, it is better to have
-separate VagrantFiles for each provider.
+Have Vagrant provisioning scripts run through the steps described in
+to    `AIO Quickstart Guide`_
 
-Software and hardware requirements are as follows:
+.. _AIO Quickstart Guide: http://docs.openstack.org/developer/openstack-ansible/developer-docs/quickstart-aio.html
 
-+------------------------+-------------------------+-------------------------+
-| Component              | VirtualBox Provider     | Libvirt Provider        |
-+========================+=========================+=========================+
-| RAM                    | 8GB                     | 8GB                     |
-+------------------------+-------------------------+-------------------------+
-| Disk                   | 50GB                    | 50GB                    |
-+------------------------+-------------------------+-------------------------+
-| Supported Hypervisor   | Windows, Mac, Linux     | Linux                   |
-+------------------------+-------------------------+-------------------------+
-| Vagrant Box            | `HashiCorp Trusty64`_   | `Ubuntu Cloud Image`_   |
-+------------------------+-------------------------+-------------------------+
-
-.. _HashiCorp Trusty64: https://atlas.hashicorp.com/ubuntu/boxes/trusty64
-.. _Ubuntu Cloud Image: https://cloud-images.ubuntu.com/vagrant/trusty/current/trusty-server-cloudimg-amd64-vagrant-disk1.box
-
-*Topology*
+Virtual image used by Vagrant, called vagrant boxes, can be easily created using
+HashiCorp's Packer utility.  A simple example is
+as follows:
 
 ::
 
-     Virtual Machine
-     +--------------------------------------------------------------------------+
-     |                                                                          |
-     |  +-------------------+                                                   |
-     |  |DeployServer in LXC+--------+                                          |
-     |  +-----+-------------+        |                                          |
-     |        |                      |                                          |
-     |        |                      |                                          |
-     |        |               +------+----+                                     |
-     |        |               |Container  +-----------------------------+       |
-     |        |               |Mgmt Bridge+----+                        |       |
-     |        |               +---+------++    |                        |       |
-     |        |                   |      |     |                        |       |
-     |        |                   |      |     |                        |       |
-     |        |                   |      |     |                        |       |
-     |        |               +---+------------+--------------+   +-----+-----+ |
-     |        |               | Openstack+Ansible LXCs        |   | Neutron L3| |
-     |        |               + (Nova/Neutron/Repo/Ceilometer/|   | Agent LXC | |
-     |        |               |  Aodh/Horizon/Heat)           |   +-----------+ |
-     |        |               +---+ +-------------------------+                 |
-     |        |                                                                 |
-     |      +-+-----+                                                           |
-     |      | Host  |              +----------+   +---------+  +------------+   |
-     |      | Bridge|              | Br-Vxlan |   | Br-Vlan |  | Br-External|   |
-     |      +--+----+              | Bridge   |   | Bridge  |  | Bridge     |   |
-     |         |                   +-----+----+   +-----+---+  +-----+------+   |
-     |         |                         |              |            |          |
-     |         |                         |              |            |          |
-    ++---------+-------------------------+--------------+------------+----------+
-    | Eth0|    eth1                     eth2           eth3         eth4
-    +-----+
+    git clone https://github.com/chef/bento
+    cd bento
+    packer build -only=virtualbox ubuntu-14.04-amd64.json
+    vagrant box add builds/ubuntu-14-04.libvirt.box --name "trusty64"
+    # confirm vagrant box addition
+    vagrant box list
 
+Prebuilt vagrant boxes can also be found on `atlas.hashicorp.com`_
 
-The Vagrant AIO setup comes with a set of Ansible provisioning playbooks.
-These playbooks do the following:
+.. _atlas.hashicorp.com: https://atlas.hashicorp.com/ubuntu/boxes/trusty64
 
-- Configure VM bridges and ethernet interfaces as described in the above
-  topology
+After a Vagrant Box is added to the vagrant box list, set the the following optional
+environmental variables to customize the environment
 
+* VAGRANT_AIO_CPUS: Number of virtual CPUs used.  Default is 2.
+* VAGRANT_AIO_MEMORY: Amount of memory in MB. Default is 4096
+* VAGRANT_AIO_DISK_SIZE: Root disk size. Default is 80GB
+* VAGRANT_AIO_OPENSTACK_RELEASE: Openstack-ansible release branch to use.
+By default this is none. When set to none, it will attempt to install the latest tagged
+release of openstack-ansible. If set it will install the latest tag in the specified branch.
+* VAGRANT_AIO_TAG: If set, this will override the VAGRANT_AIO_OPENSTACK_RELEASE
+setting and checkout the repo at the tag specified.
+* VAGRANT_AIO_STOP_AFTER_BOOTSTRAP: If set to 1, then the Vagrant provisioner
+will stop after running
+* BOOTSTRAP_OPTS: Applies additional BOOTSTRAP_OPTS as described on the
+quickstart-aio guide.
 
--  Install the Deployer Host as a LXC container in the VM and sets up the LXC
-   networking
+If no customization is required, the default settings as described above are applied
+and the following occurs after ``vagrant up`` is executed.
 
-- Installs Openstack-Ansible  on the Deploy LXC. For the first version,
-  a static copy of /etc/openstack_deploy/user_config.yml is placed on the deploy
-  LXC.  This file is  dependent on the
-  Openstack-Ansible version. For example the Kilo version of
-  the ``user_config.yml`` is a little different than the Liberty version.
-  In the future, it may be less brittle to modify
-  the ``/etc/openstack/user_config.yml`` with more intelligence.
-  Perhaps, using the
-  ``lineinfile`` Ansible module.
+* VM is started, based on the CPU and Memory  and Disk settings defined in the environmental
+variables
+* After the VM is started,  the Vagrant provisioner runs ``scripts/bootstrap-ansible.sh``
+* Then the provisioner runs ``scripts/bootstrap-aio.sh``
+* if VAGRANT_AIO_STOP_AFTER_BOOTSTRAP is set, then the provisioner stops here.
+otherwise it runs ``scripts/run-playbooks.sh``
 
+The  Virtualbox Virtualbox provider is supported on Mac/Linux/Windows.
 
-This blueprint currently does not cover Cinder/Swift/Ceph support. Contributions
-will be kindly welcome in this area, before the code is completed.
-
-
-The project file structure is as follows
-
-- ``VagrantFile.libvirt``: VagrantFile for the Libvirt Provider
-
-- ``VagrantFile.vitualbox``: VagrantFile for the VirtualBox provider
-
-- ``aio_base_setup.yml``: Creates the Deploy Server LXC and pre-configures
-  the Vagrant VM as a Controller/Compute Node. The pre-configuration
-  includes creating the necessary bridges, like ``br-vxlan`` and ``br-vlan``.
-
-- ``deployerserver.yml``: Clones the Openstack-Ansible repo to the Deploy LXC.
-   Creates the openstack-ansible executable. Adds an Apt-cache to the deploy
-   server LXC. Any LXC or VM after this that attempts to apt-get anything,
-   will go through the APT-cacher. It also creates a user_secret.yml file
-   with the simple password of 'password123'.
-   This could be defined as a variable
-   in the VagrantFile.
-
-- ``templates/openstack_user_config.yml.j2``: This is a modified copy of
-  the  etc/openstack_deploy/openstack_user_config.yml repo script.
-  This template overwrites the user configuration file in the deployer LXC's
-  ``/etc/openstack_deploy/openstack_user_config.yml``.
-  It is a brittle solution. Depends on someone continuously modifying this
-  template at each time a new Openstack release
-  It would be better to find a more intelligent and dynamic way of
-  creating a Vagrant AIO compatible user configuration file.
-
-The user order of operations would be:
-
-- ``git clone`` the openstack-ansible Repo
-
-- cd to ``openstack/aio/vagrant``
-
-- User reviews the README that describes the requirements for Vagrant to work
-
-- In the VagrantFile enter the Openstack Release the user wishes to deploy.
-  The variable options will be presented in the comment above the variable.
-  This blueprint is to build Vagrant AIO support for Liberty and Mitaka.
-
-- Type  ``vagrant up``. This will run the VagrantFile and deploy the VM with the
-  deploy server LXC.
-
-- Type ``vagrant ssh aio``. This will redirect the user into the deploy server
-  lxc container and place the user in the openstack-ansible git repo home
-  directory.
-
-- The user now has the option to modify the default Vagrant AIO openstack_deploy
-  options as needed.
-
-- Type ``openstack-ansible haproxy-install.yml`` to install HAProxy on the VM.
-  I often forget to run this setup. Perhaps just having this run during the
-  initial Vagrant install is better. But this is up for debate.
-
-- Type ``openstack-ansible setup-everything.yml`` to deploy begin the AIO setup
-  to complete the setup.
-
-
-The Virtual AIO topology design will allow the user to add
-additional Virtual nodes to the setup to simulate an Openstack bare metal
-cluster. But this is not the scope of this blueprint.
+The Libvirt Vagrant provider is supported only on Linux
 
 Alternatives
 ------------
 
-Have not found a good prescriptive alternative for building a virtual
-single or multi-node setups of Openstack. Vagrant provides a simple push button
-approach, i.e ``vagrant up``, once the basic Vagrant requirements are met.
-
+None.
 
 Playbook/Role impact
 --------------------
-None so far.
+None.
 
 Upgrade impact
 --------------
 
-The current way of deploying the vagrant AIO user configuration is brittle.
-Upgrading an Openstack Release currently means modifying the Vagrant AIO
-user configuration file. So making the current solution somewhat brittle.
+None.
 
 Security impact
 ---------------
 
-This has no security impact to the core repo files.
-
-The Vagrant setup, applies the password "password123" for all passwords
-by modifying ``/etc/openstack/user_secrets.yml`` using the ``lineinfile``
-Ansible module. A user can easily change this behavior.
-
+None.
 
 Performance impact
 ------------------
@@ -212,9 +107,7 @@ None. The virtual AIO is for testing and development
 Deployer impact
 ---------------
 
-There are no additions to the core deployer code. Vagrant Ansible scripts
-will modify various ``/etc/openstack_deploy`` scripts after the files are
-installed on the Deployer LXC.
+None
 
 
 Developer impact
@@ -243,15 +136,10 @@ Primary assignee:
 Work items
 ----------
 
-- Create the Virtualbox Provider VagrantFile, without any Ansible provisioning
-  scripts
+- Create the Virtualbox Provider VagrantFile
 
-- Create the Libvirt Provider VagrantFile, without any Ansible provisioning
-  scripts
+- Create the Libvirt Provider VagrantFile
 
-- Create the aio_base_setup.yml provisioning script.
-
-- Create the deployserver provisioning script
 
 Testing
 =======
