@@ -93,7 +93,7 @@ None.
 
 Performance impact
 ------------------
-The virtual AIO will be significantly slower using the Vagrant Virtualbox
+The virtual AIO will be  slower using the Vagrant Virtualbox
 Provider because Virtualbox does not support
 `nested Virtualization <https://www.virtualbox.org/ticket/4032>`_.
 
